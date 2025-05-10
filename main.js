@@ -53,6 +53,7 @@ const { Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, PluginSettingTab, S
 /** @type {HomepageSettings} */
 const DEFAULT_SETTINGS = {
     homepageFilePath: "Home.md",
+    openHomepageOnStartup: false, // 默认关闭
     showDailyDisplay: true,
     dailyDisplayMainLabel: "每日鉴赏",
     dailyDisplayMetadataField: "form",
@@ -103,6 +104,66 @@ class CustomDynamicHomepagePlugin extends Plugin {
         // #SETTINGS_TAB_ADD
         this.addSettingTab(new HomepageSettingTab(this.app, this));
 
+        // --- ADD COMMAND TO OPEN HOMEPAGE ---
+        // #COMMAND_OPEN_HOMEPAGE
+        this.addCommand({
+            id: 'open-custom-homepage',
+            name: this.getLocalizedString({ en: 'Open Homepage', zh: '打开主页' }),
+            callback: () => {
+                this.navigateToHomepage(); // Default: try to reuse existing leaf or open new
+            },
+        });
+
+        // --- ADD RIBBON ICON TO OPEN HOMEPAGE ---
+        // #RIBBON_ICON_OPEN_HOMEPAGE
+        // Use a suitable Obsidian icon name (e.g., 'home', 'lucide-home', 'layout-dashboard')
+        // You can find icon names here: https://lucide.dev/ or by inspecting Obsidian's UI.
+        // 'home' is a common one.
+        const ribbonIconEl = this.addRibbonIcon('home', this.getLocalizedString({ en: 'Open Homepage', zh: '打开主页' }), (evt) => {
+            this.navigateToHomepage();
+        });
+        // Optionally, add a class to the ribbon icon for additional styling if needed
+        ribbonIconEl.addClass('custom-dynamic-homepage-ribbon-icon');
+
+
+        // --- HANDLE OPEN ON STARTUP ---
+        // #LOGIC_OPEN_ON_STARTUP
+        if (this.settings.openHomepageOnStartup) {
+            // We need to wait for the workspace to be fully loaded before trying to open files.
+            // 'layout-ready' is a good event for this.
+            // If the plugin loads *after* layout-ready (e.g. user enables it later),
+            // this onLayoutReady might not fire immediately for *this* load.
+            // So, we also check if layout is already ready.
+            
+            const openHomepageLogic = () => {
+                // Check if a file is already open, especially if it's the homepage.
+                // If Obsidian is set to "open last used tabs", the homepage might already be active.
+                const activeFile = this.app.workspace.getActiveFile();
+                if (activeFile && activeFile.path === this.settings.homepageFilePath) {
+                    // Homepage is already active, do nothing extra.
+                    // Our existing active-leaf-change handler will apply styles.
+                    console.log("CustomHomepage: Homepage is already active on startup.");
+                    this.checkAndApplyHomepageStylesForLeaf(this.app.workspace.getActiveViewOfType(MarkdownView)?.leaf);
+                    return;
+                }
+                // If another file is open, or no file, then navigate.
+                console.log("CustomHomepage: Navigating to homepage on startup.");
+                this.navigateToHomepage(); // Default behavior
+            };
+
+            if (this.app.workspace.layoutReady) {
+                // Layout is already ready, execute immediately
+                openHomepageLogic();
+            } else {
+                // Layout not yet ready, register a one-time event
+                this.registerEvent(
+                    this.app.workspace.on('layout-ready', () => {
+                        openHomepageLogic();
+                    }, this) // Pass 'this' as context for one-time event
+                );
+            }
+        }
+
         // --- REGISTER WORKSPACE EVENT LISTENERS ---
         // #EVENT_LISTENER_ACTIVE_LEAF_CHANGE
         this.registerEvent(
@@ -145,6 +206,42 @@ class CustomDynamicHomepagePlugin extends Plugin {
         if (dynamicStyleEl) {
             dynamicStyleEl.remove();
         }
+
+    }
+
+    // #UTILITY_NAVIGATE_TO_HOMEPAGE
+    async navigateToHomepage() { // REMOVED alwaysNewTab parameter
+        const homepagePath = this.settings.homepageFilePath;
+        if (!homepagePath) {
+            new Notice(this.getLocalizedString({
+                en: "Homepage file path is not configured in settings.",
+                zh: "主页文件路径未在设置中配置。"
+            }));
+            return;
+        }
+
+        let homepageFile = this.app.vault.getAbstractFileByPath(homepagePath);
+        if (!(homepageFile instanceof TFile)) {
+            new Notice(this.getLocalizedString({
+                en: `Homepage file "${homepagePath}" not found. Please create it or check the path.`,
+                zh: `主页文件 "${homepagePath}" 未找到。请创建它或检查路径。`
+            }));
+            return; 
+        }
+
+        // Check if the homepage is already open in any leaf
+        const leaves = this.app.workspace.getLeavesOfType("markdown");
+        for (const leaf of leaves) {
+            if (leaf.view instanceof MarkdownView && leaf.view.file && leaf.view.file.path === homepagePath) {
+                // Homepage is already open, activate its leaf
+                this.app.workspace.setActiveLeaf(leaf, { focus: true });
+                return; // Exit after activating
+            }
+        }
+
+        // Homepage is not open, so open it in a new tab
+        const targetLeaf = this.app.workspace.getLeaf('tab'); // Always get a new tab leaf
+        await targetLeaf.openFile(homepageFile, { active: true }); // active: true makes the new leaf active
     }
 
     // --- SETTINGS MANAGEMENT ---
@@ -1494,7 +1591,25 @@ class HomepageSettingTab extends PluginSettingTab {
                     this.plugin.settings.homepageFilePath = value.trim() || DEFAULT_SETTINGS.homepageFilePath;
                     await this.plugin.saveSettings();
                 }));
-        
+
+        // 在 display() 方法中，例如紧跟在 "Homepage File Path" 设置之后
+        // #SETTING_ITEM_OPEN_ON_STARTUP
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: "Open Homepage on Startup",
+                zh: "启动时自动打开主页"
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: "If enabled, the plugin will automatically open your homepage when Obsidian starts.",
+                zh: "如果启用，插件将在 Obsidian 启动时自动打开您的主页。"
+            }))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.openHomepageOnStartup)
+                .onChange(async (value) => {
+                    this.plugin.settings.openHomepageOnStartup = value;
+                    await this.plugin.saveSettings();
+                }));
+
         // --- SUB-HEADING: Main Content Area Modules ---
         // #SETTINGS_SUBHEADING_MAIN_CONTENT
         containerEl.createEl('h3', {
