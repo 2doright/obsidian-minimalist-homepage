@@ -1504,6 +1504,15 @@ class HomepageSettingTab extends PluginSettingTab {
             })
         });
 
+        // --- SUB-HEADING: Daily Display Section ---
+        // #SETTINGS_SUBHEADING_Daily Display Section
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'Daily Display Section',
+                zh: '每日模块'
+            })
+        });
+
         // --- SETTING: Show Daily Display ---
         // #SETTING_ITEM_SHOW_DAILY_DISPLAY
         new Setting(containerEl)
@@ -1541,26 +1550,6 @@ class HomepageSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // --- SETTING: Daily Display Forms ---
-        // #SETTING_ITEM_DAILY_DISPLAY_FORMS
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({
-                en: 'Daily Display Forms (Comma-separated)',
-                zh: '每日模块适用文档类型 (逗号分隔)'
-            }))
-            .setDesc(this.plugin.getLocalizedString({
-                en: 'Note "form" frontmatter values to consider for daily display (e.g., poem,prose). Case-insensitive.',
-                zh: '笔记中 "form" 元数据的值，用于筛选每日模块的内容 (例如：诗,词,文言文)。不区分大小写。'
-            }))
-            .addText(text => text
-                .setPlaceholder(DEFAULT_SETTINGS.dailyDisplayForms)
-                .setValue(this.plugin.settings.dailyDisplayForms)
-                .onChange(async (value) => {
-                    this.plugin.settings.dailyDisplayForms = value; // User input, will be processed later
-                    await this.plugin.saveSettings();
-                }));
-
-
         // #SETTING_ITEM_DAILY_DISPLAY_METADATA_FIELD
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
@@ -1578,6 +1567,103 @@ class HomepageSettingTab extends PluginSettingTab {
                     this.plugin.settings.dailyDisplayMetadataField = value.trim() || DEFAULT_SETTINGS.dailyDisplayMetadataField;
                     await this.plugin.saveSettings();
                 }));
+
+        // --- SETTING: Daily Display Forms ---
+        // #SETTING_ITEM_DAILY_DISPLAY_FORMS
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: 'Daily Display Forms (Comma-separated)',
+                zh: '每日模块适用文档类型 (逗号分隔)'
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: 'Note frontmatter(e.g. "form") values to consider for daily display (e.g., poem,prose). Case-insensitive.',
+                zh: '笔记中元数据(如"form")的值，用于筛选每日模块的内容 (例如：诗,词,文言文)。不区分大小写。'
+            }))
+            .addText(text => text
+                .setPlaceholder(DEFAULT_SETTINGS.dailyDisplayForms)
+                .setValue(this.plugin.settings.dailyDisplayForms)
+                .onChange(async (value) => {
+                    this.plugin.settings.dailyDisplayForms = value; // User input, will be processed later
+                    await this.plugin.saveSettings();
+                }));
+
+        // --- SUB-HEADING: Show Folder Grid ---
+        // #SETTINGS_SUBHEADING_Show Folder Grid
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'Folder Grid',
+                zh: '文件夹网格'
+            })
+        });
+
+        // --- SUB-HEADING: Accordion Mode ---
+        // #SETTINGS_SUBHEADING_Accordion Mode
+        containerEl.createEl('h5', {
+            text: this.plugin.getLocalizedString({
+                en: 'Accordion Mode (for Collapsible)',
+                zh: '手风琴模式'
+            })
+        });
+        // --- SETTING: Accordion Mode for Details (同级手风琴) ---
+        // #SETTING_ITEM_ACCORDION_MODE
+        let accordionModeToggleComponent; // <--- 在这里声明一个变量来持有开关组件的引用
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: 'Enable Accordion Mode for Collapsible Sections',
+                zh: '为可折叠区域启用手风琴模式'
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: 'If enabled, opening one collapsible section (e.g., subfolder) will close others at the same level within its card. Ineffective if Global Accordion Mode is enabled.',
+                zh: '如果启用，在卡片内打开一个可折叠区域（例如子文件夹）将会关闭同一层级的其他已打开区域。如果“全局手风琴模式”已启用，则此设置无效。' // <--- 更新描述
+            }))
+            .addToggle(toggle => {
+                accordionModeToggleComponent = toggle; // <--- 将开关组件赋值给变量
+                toggle
+                    .setValue(this.plugin.settings.accordionModeForDetails)
+                    .setDisabled(this.plugin.settings.globalAccordionMode) // <--- 根据全局模式的当前状态设置初始禁用状态
+                    .onChange(async (value) => {
+                        this.plugin.settings.accordionModeForDetails = value;
+                        await this.plugin.saveSettings();
+                    })
+            });
+
+        // --- SETTING: Global Accordion Mode ---
+        // #SETTING_ITEM_GLOBAL_ACCORDION_MODE
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: 'Enable Global Accordion Mode',
+                zh: '启用全局手风琴模式'
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: 'If enabled, opening any collapsible section on the homepage will close ALL other currently open collapsible sections, regardless of their level or parent. Overrides "Enable Accordion Mode for Collapsible Sections" if active.',
+                zh: '如果启用，在主页上打开任何可折叠区域将会关闭所有其他当前已打开的可折叠区域，无论它们的层级或父元素如何。如果启用，此设置将覆盖“为可折叠区域启用手风琴模式”。'
+            }))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.globalAccordionMode)
+                .onChange(async (value) => {
+                    this.plugin.settings.globalAccordionMode = value;
+                    await this.plugin.saveSettings();
+
+                    // 当全局模式开关改变时，更新同级模式开关的禁用状态
+                    if (accordionModeToggleComponent) {
+                        accordionModeToggleComponent.setDisabled(value);
+                        // 如果全局模式开启，可以选择性地将同级模式的实际设置值也改为false
+                        // if (value && this.plugin.settings.accordionModeForDetails) {
+                        //     this.plugin.settings.accordionModeForDetails = false;
+                        //     accordionModeToggleComponent.setValue(false); // 更新UI上的值
+                        //     await this.plugin.saveSettings(); // 保存这个更改
+                        // }
+                    }
+                }));
+        // --- SUB-HEADING: Show Folder Grid ---
+        // #SETTINGS_SUBHEADING_Show Folder Grid
+        containerEl.createEl('h5', {
+            text: this.plugin.getLocalizedString({
+                en: 'Folder Grid',
+                zh: '文件夹网格'
+            })
+        });
+
         // --- SETTING: Show Folder Grid ---
         // #SETTING_ITEM_SHOW_FOLDER_GRID
         new Setting(containerEl)
@@ -1655,59 +1741,6 @@ class HomepageSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-        // --- SETTING: Accordion Mode for Details (同级手风琴) ---
-        // #SETTING_ITEM_ACCORDION_MODE
-        let accordionModeToggleComponent; // <--- 在这里声明一个变量来持有开关组件的引用
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({
-                en: 'Enable Accordion Mode for Collapsible Sections',
-                zh: '为可折叠区域启用手风琴模式'
-            }))
-            .setDesc(this.plugin.getLocalizedString({
-                en: 'If enabled, opening one collapsible section (e.g., subfolder) will close others at the same level within its card. Ineffective if Global Accordion Mode is enabled.',
-                zh: '如果启用，在卡片内打开一个可折叠区域（例如子文件夹）将会关闭同一层级的其他已打开区域。如果“全局手风琴模式”已启用，则此设置无效。' // <--- 更新描述
-            }))
-            .addToggle(toggle => {
-                accordionModeToggleComponent = toggle; // <--- 将开关组件赋值给变量
-                toggle
-                    .setValue(this.plugin.settings.accordionModeForDetails)
-                    .setDisabled(this.plugin.settings.globalAccordionMode) // <--- 根据全局模式的当前状态设置初始禁用状态
-                    .onChange(async (value) => {
-                        this.plugin.settings.accordionModeForDetails = value;
-                        await this.plugin.saveSettings();
-                    })
-            });
-
-        // --- SETTING: Global Accordion Mode ---
-        // #SETTING_ITEM_GLOBAL_ACCORDION_MODE
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({
-                en: 'Enable Global Accordion Mode',
-                zh: '启用全局手风琴模式'
-            }))
-            .setDesc(this.plugin.getLocalizedString({
-                en: 'If enabled, opening any collapsible section on the homepage will close ALL other currently open collapsible sections, regardless of their level or parent. Overrides "Enable Accordion Mode for Collapsible Sections" if active.',
-                zh: '如果启用，在主页上打开任何可折叠区域将会关闭所有其他当前已打开的可折叠区域，无论它们的层级或父元素如何。如果启用，此设置将覆盖“为可折叠区域启用手风琴模式”。'
-            }))
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.globalAccordionMode)
-                .onChange(async (value) => {
-                    this.plugin.settings.globalAccordionMode = value;
-                    await this.plugin.saveSettings();
-
-                    // 当全局模式开关改变时，更新同级模式开关的禁用状态
-                    if (accordionModeToggleComponent) {
-                        accordionModeToggleComponent.setDisabled(value);
-                        // 如果全局模式开启，可以选择性地将同级模式的实际设置值也改为false
-                        // if (value && this.plugin.settings.accordionModeForDetails) {
-                        //     this.plugin.settings.accordionModeForDetails = false;
-                        //     accordionModeToggleComponent.setValue(false); // 更新UI上的值
-                        //     await this.plugin.saveSettings(); // 保存这个更改
-                        // }
-                    }
-                }));
-
-
         // --- SETTING: Max Height for Scrolled List ---
         // #SETTING_ITEM_MAX_HEIGHT_SCROLL
         new Setting(containerEl)
@@ -1735,7 +1768,16 @@ class HomepageSettingTab extends PluginSettingTab {
                 zh: '侧边栏模块'
             })
         });
-        
+
+        // --- SUB-HEADING: Show Vault Stats ---
+        // #SETTINGS_SUBHEADING_Show Vault Stats
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'Vault Stats',
+                zh: '文档统计'
+            })
+        });
+
         // --- SETTING: Show Vault Stats ---
         // #SETTING_ITEM_SHOW_VAULT_STATS
         new Setting(containerEl)
@@ -1790,25 +1832,25 @@ class HomepageSettingTab extends PluginSettingTab {
                     await this.plugin.saveSettings();
                 }));
 
-
-        containerEl.createEl('h4', { 
+        // --- SUB-HEADING: To-Do List ---
+        // #SETTINGS_SUBHEADING_To-Do List
+        containerEl.createEl('h4', {
             text: this.plugin.getLocalizedString({
-                en: "Sidebar: To-Do List", 
-                zh: "侧边栏：待办事项"
-            }),
-            cls: "setting-item-heading" // Optional class for styling headings
-        }).style.marginTop = "20px"; // Add some space
+                en: 'To-Do List',
+                zh: '待办事项'
+            })
+        });
 
         // --- SETTING: Show Sidebar To-Do List ---
         // #SETTING_ITEM_SHOW_TODO_SIDEBAR_SECTION 
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
                 en: "Show To-Do List in Sidebar", 
-                zh: "在侧边栏显示待办列表"
+                zh: "显示待办列表"
             }))
             .setDesc(this.plugin.getLocalizedString({
                 en: "Display a list of pending tasks directly in the sidebar.",
-                zh: "在侧边栏直接显示一个待处理任务的列表。"
+                zh: "显示一个待处理任务的列表。"
             }))
             .addToggle(toggle => toggle
                 .setValue(this.plugin.settings.showTodoSidebarSection)
@@ -1822,7 +1864,7 @@ class HomepageSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
                 en: "Sidebar To-Do List Title", 
-                zh: "侧边栏待办列表标题"
+                zh: "待办列表标题"
             }))
             .addText(text => text
                 .setPlaceholder(DEFAULT_SETTINGS.todoSidebarSectionTitle)
@@ -1837,7 +1879,7 @@ class HomepageSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
                 en: "Sidebar To-Do Sources", 
-                zh: "侧边栏待办来源"
+                zh: "待办来源"
             }))
             .setDesc(this.plugin.getLocalizedString({
                 en: 'Leave empty for all tasks. Otherwise, use a folder path (e.g., "Projects/") or a tag (e.g., "#todo").', 
@@ -1856,7 +1898,7 @@ class HomepageSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
                 en: "Sidebar To-Do Limit", 
-                zh: "侧边栏待办数量上限"
+                zh: "待办数量上限"
             }))
             .addSlider(slider => slider
                 .setLimits(1, 30, 1) // Min, Max, Step
@@ -1866,6 +1908,16 @@ class HomepageSettingTab extends PluginSettingTab {
                     this.plugin.settings.todoSidebarSectionLimit = value;
                     await this.plugin.saveSettings();
                 }));
+
+        // --- SUB-HEADING: To-Do Notes ---
+        // #SETTINGS_SUBHEADING_To-Do Notes
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'To-Do Notes',
+                zh: '待整理笔记'
+            })
+        });
+
         // --- SETTING: Show To-Do Notes ---
         // #SETTING_ITEM_SHOW_TODO_NOTES
         new Setting(containerEl)
@@ -1903,6 +1955,14 @@ class HomepageSettingTab extends PluginSettingTab {
             .setName(this.plugin.getLocalizedString({en: 'To-Do Notes Limit', zh: '待整理笔记数量上限'}))
             .addSlider(slider => slider.setLimits(1, 20, 1).setValue(this.plugin.settings.todoFilesLimit).setDynamicTooltip().onChange(async val => {this.plugin.settings.todoFilesLimit = val; await this.plugin.saveSettings();}));
 
+        // --- SUB-HEADING: Recent Edits ---
+        // #SETTINGS_SUBHEADING_Recent Edits
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'Recent Edits',
+                zh: '最近编辑'
+            })
+        });
 
         // --- SETTING: Show Recent Edits ---
         // #SETTING_ITEM_SHOW_RECENT_EDITS
@@ -1928,6 +1988,14 @@ class HomepageSettingTab extends PluginSettingTab {
             .setName(this.plugin.getLocalizedString({en: 'Recent Edits Limit', zh: '最近编辑数量上限'}))
             .addSlider(slider => slider.setLimits(1, 20, 1).setValue(this.plugin.settings.recentFilesLimitSidebar).setDynamicTooltip().onChange(async val => {this.plugin.settings.recentFilesLimitSidebar = val; await this.plugin.saveSettings();}));
 
+        // --- SUB-HEADING: Quick Access ---
+        // #SETTINGS_SUBHEADING_Quick Access
+        containerEl.createEl('h4', {
+            text: this.plugin.getLocalizedString({
+                en: 'Quick Access',
+                zh: '快速访问'
+            })
+        });
 
         // --- SETTING: Show Quick Access ---
         // #SETTING_ITEM_SHOW_QUICK_ACCESS
@@ -1946,6 +2014,15 @@ class HomepageSettingTab extends PluginSettingTab {
                     this.plugin.settings.showQuickAccess = value;
                     await this.plugin.saveSettings();
                 }));
+
+        // --- SUB-HEADING: Top Tags ---
+        // #SETTINGS_SUBHEADING_Top Tags
+        containerEl.createEl('h5', {
+            text: this.plugin.getLocalizedString({
+                en: 'Top Tags',
+                zh: '常用标签'
+            })
+        });
 
         // --- SETTING: Show Top Tags in Quick Access ---
         // #SETTING_ITEM_SHOW_QA_TOP_TAGS
@@ -1971,13 +2048,20 @@ class HomepageSettingTab extends PluginSettingTab {
             .setName(this.plugin.getLocalizedString({en: 'Top Tags Limit', zh: '常用标签数量上限'}))
             .addSlider(slider => slider.setLimits(1, 20, 1).setValue(this.plugin.settings.topTagsLimit).setDynamicTooltip().onChange(async val => {this.plugin.settings.topTagsLimit = val; await this.plugin.saveSettings();}));
 
-
+        // --- SUB-HEADING: Bookmarks ---
+        // #SETTINGS_SUBHEADING_Bookmarks
+        containerEl.createEl('h5', {
+            text: this.plugin.getLocalizedString({
+                en: 'Bookmarks',
+                zh: '书签'
+            })
+        });
         // --- SETTING: Show Bookmarks in Quick Access ---
         // #SETTING_ITEM_SHOW_QA_BOOKMARKS
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({
-                en: 'Show "Bookmarks" in Quick Access (Obsidian Native)',
-                zh: '在快速访问中显示“书签” (Obsidian 内置)'
+                en: 'Show "Bookmarks" in Quick Access (Obsidian Core Plugin)',
+                zh: '在快速访问中显示“书签” (Obsidian 核心插件)'
             }))
             .setDesc(this.plugin.getLocalizedString({
                 en: "Requires 'Show Quick Access Section' to be enabled. This will use Obsidian's built-in bookmarks.",
