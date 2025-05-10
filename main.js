@@ -705,6 +705,89 @@ rerenderHomepageIfActive() {
                     }
                 } // End of for...of topLevelTFolders
 
+
+                // #FOLDER_GRID_ROOT_NOTES_CARD
+                const directRootNotes = this.app.vault.getMarkdownFiles().filter(file => {
+                    if (!file.parent || file.parent.path !== '/') return false; // Must be in root
+                    // Optional: exclude if filename matches an excluded top folder name (unlikely for root files)
+                    // if (excludedFoldersArray.includes(file.basename.toLowerCase())) return false;
+                    return true;
+                }).sort((a, b) => a.name.localeCompare(b.name, moment.locale().startsWith('zh') ? 'zh-CN' : undefined));
+
+                if (directRootNotes.length > 0) {
+                    foundContentFolders++; // Increment if we found root notes, to prevent "No folders found" message if only root notes exist.
+
+                    const rootNotesCard = folderGridContainer.createDiv({ cls: 'folder-card root-notes-card' }); // Add specific class if needed
+                    const rootNotesCardHeader = rootNotesCard.createDiv({ cls: 'folder-card-header' });
+                    rootNotesCardHeader.createEl('h3', { text: this.getLocalizedString({ en: 'Vault Root Notes', zh: '根目录笔记' }) });
+                    const rootNotesCardContent = rootNotesCard.createDiv({ cls: 'folder-card-content' });
+
+                    const uniqueRootIdPart = 'rootnotes-' + Date.now().toString().slice(-5);
+                    
+                    // --- List of all root notes (with "show more") ---
+                    const rootNotesListId = `rnl-${uniqueRootIdPart}`;
+                    // No <details> needed here as per requirement
+                    const notesListWrapper = rootNotesCardContent.createDiv({ cls: 'notes-list-wrapper' }); // Wrapper for styling and show more
+                    const ul = notesListWrapper.createEl('ul', { 
+                        cls: 'notes-list notes-list-direct-root hide-overflow-notes', // New specific class for root notes list
+                        attr: { id: rootNotesListId } 
+                    });
+
+                    directRootNotes.forEach((note, noteIndex) => {
+                        // Using initialNotesInSubfolderDisplay setting for limit here, can be a new setting if desired
+                        const itemClass = noteIndex >= this.settings.initialNotesInSubfolderDisplay ? 'overflow-note-item' : '';
+                        const li = ul.createEl('li', { cls: itemClass });
+                        const noteNameLink = li.createSpan({cls: 'note-name-link'});
+                        noteNameLink.createEl('a', {
+                            cls: 'internal-link',
+                            href: note.path,
+                            text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                            attr: { 'data-href': note.path }
+                        });
+                        li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
+                    });
+
+                    if (directRootNotes.length > this.settings.initialNotesInSubfolderDisplay) {
+                       const toggleLink = notesListWrapper.createEl('a', {
+                            cls: 'toggle-more-link',
+                            href: 'javascript:void(0);',
+                            text: this.getLocalizedString({
+                                en: `View all ${directRootNotes.length} notes (showing ${this.settings.initialNotesInSubfolderDisplay})`,
+                                zh: `查看全部 ${directRootNotes.length} 篇 (已显示 ${this.settings.initialNotesInSubfolderDisplay})`
+                            })
+                        });
+                        toggleLink.dataset.totalNotes = directRootNotes.length.toString();
+                        toggleLink.dataset.initialDisplayCount = this.settings.initialNotesInSubfolderDisplay.toString();
+                        this.registerDomEvent(toggleLink, 'click', () => this.toggleMoreNotes(rootNotesListId, toggleLink));
+                    }
+
+                    // --- Recent Notes in Vault Root ---
+                    if (this.settings.recentNotesInCategoryLimit > 0 && directRootNotes.length > 0) {
+                        const recentRootNotesContainer = rootNotesCardContent.createDiv({ cls: 'recent-updates-direct' });
+                        recentRootNotesContainer.createEl('h4', { 
+                            cls: 'card-inline-title', 
+                            text: this.getLocalizedString({ en: 'Recently Updated', zh: '最近更新' }) 
+                        });
+                        const recentListWrapper = recentRootNotesContainer.createDiv({cls: 'notes-list-wrapper'});
+                        const recentUl = recentListWrapper.createEl('ul', { cls: 'notes-list recent-in-category-list' });
+
+                        directRootNotes // Already sorted by name, re-sort for recent
+                            .sort((a, b) => b.stat.mtime - a.stat.mtime) // Sort descending by modification time
+                            .slice(0, this.settings.recentNotesInCategoryLimit)
+                            .forEach(note => {
+                                const li = recentUl.createEl('li');
+                                const noteNameLink = li.createSpan({cls: 'note-name-link'});
+                                noteNameLink.createEl('a', {
+                                    cls: 'internal-link',
+                                    href: note.path,
+                                    text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                                    attr: { 'data-href': note.path }
+                                });
+                                li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
+                            });
+                    }
+                } // End of if (directRootNotes.length > 0)
+                
                 if (foundContentFolders === 0) {
                     folderGridContainer.createEl('p', { 
                         cls: 'empty-message', 

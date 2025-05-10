@@ -112,7 +112,15 @@ body.homepage-is-active .workspace-leaf-content[data-type="markdown"] .inline-ti
 .collapsible-section summary .summary-text-label { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 8px; }
 .collapsible-section summary .note-count { flex-shrink: 0; font-size: 0.9em; color: var(--text-faint); }
 .notes-list-wrapper { background-color: var(--background-primary); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--background-modifier-border); margin-top: 4px; margin-bottom: 8px; transition: border-color 0.2s ease, background-color 0.2s ease; }
-.collapsible-section[open] > .notes-list-wrapper:hover, .recent-updates-direct > .notes-list-wrapper:hover, .recent-file-item:hover { border-color: var(--interactive-accent); background-color: var(--background-modifier-hover, rgba(74, 144, 226, 0.1)); }
+
+.collapsible-section[open] > .notes-list-wrapper:hover, 
+.recent-updates-direct > .notes-list-wrapper:hover, 
+/* .recent-file-item:hover, /* Consider if this line is still needed or correct for its original intent */
+.root-notes-card .notes-list-wrapper:hover { /* ADDED: Hover effect for notes list in root card */
+    border-color: var(--interactive-accent);
+    background-color: var(--background-modifier-hover, rgba(74, 144, 226, 0.1));
+}
+
 .notes-list.enable-scroll-on-overflow { max-height: var(--notes-list-max-height-scroll, 250px); overflow-y: auto; } /* var(--notes-list-max-height-scroll) will be set by plugin settings */
 .notes-list { list-style-type: none; padding-left: 0; margin: 0; }
 .notes-list li { padding: 6px 2px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
