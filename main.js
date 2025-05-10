@@ -114,6 +114,45 @@ class CustomDynamicHomepagePlugin extends Plugin {
             },
         });
 
+        // --- COMMAND: Reload Homepage Content ---
+        // #COMMAND_RELOAD_HOMEPAGE
+        this.addCommand({
+            id: 'reload-custom-homepage-content',
+            name: this.getLocalizedString({ en: 'Reload Homepage Content', zh: '重新加载主页内容' }),
+            checkCallback: (checking) => {
+                // Only enable if the active view is the homepage
+                const activeFile = this.app.workspace.getActiveFile();
+                const isHomepageActive = activeFile && activeFile.path === this.settings.homepageFilePath;
+                if (isHomepageActive) {
+                    if (!checking) { // If actually executing
+                        const view = this.app.workspace.getActiveViewOfType(MarkdownView);
+                        if (view) {
+                            // This will re-run all code block processors in the view
+                            view.leaf.rebuildView(); 
+                            new Notice(this.getLocalizedString({ en: "Homepage content reloaded.", zh: "主页内容已重新加载。" }), 2000);
+                        }
+                    }
+                    return true; // Command should be shown/enabled
+                }
+                return false; // Command should be hidden/disabled
+            }
+        });
+
+        // --- COMMAND: Open Homepage Settings ---
+        // #COMMAND_OPEN_SETTINGS
+        this.addCommand({
+            id: 'open-custom-homepage-settings',
+            name: this.getLocalizedString({ en: 'Open Homepage Settings', zh: '打开主页设置' }),
+            callback: () => {
+                // First, ensure the settings modal is open
+                this.app.setting.open();
+                // Then, try to navigate to the plugin's specific settings tab
+                // This might require a slight delay if open() is asynchronous in its display,
+                // but usually, it prepares the ground for openTabById.
+                this.app.setting.openTabById(this.manifest.id);
+            }
+        });
+
         // --- ADD RIBBON ICON TO OPEN HOMEPAGE ---
         // #RIBBON_ICON_OPEN_HOMEPAGE
         // Use a suitable Obsidian icon name (e.g., 'home', 'lucide-home', 'layout-dashboard')
@@ -1566,10 +1605,10 @@ class HomepageSettingTab extends PluginSettingTab {
 
         // --- MAIN TITLE FOR SETTINGS PAGE ---
         // #SETTINGS_PAGE_TITLE
-        containerEl.createEl('h2', {
+        containerEl.createEl('h1', {
             text: this.plugin.getLocalizedString({
-                en: 'Custom Dynamic Homepage Settings',
-                zh: '自定义动态主页设置'
+                en: 'Minimalist Homepage Settings',
+                zh: '极简主页设置'
             })
         });
 
