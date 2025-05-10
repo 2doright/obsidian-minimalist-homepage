@@ -1006,10 +1006,21 @@ rerenderHomepageIfActive() {
                                 attr: { 'data-href': file.path }
                             });
                             const metaEl = itemEl.createDiv({ cls: 'recent-file-meta' });
+                            let folderDisplayPath = '';
+                            let folderDisplayName = '';
+
+                            if (file.parent && file.parent.path !== '/') { // Check if parent exists and is not the root
+                                folderDisplayName = file.parent.name;
+                                folderDisplayPath = file.parent.path;
+                            } else {
+                                folderDisplayName = this.getLocalizedString({ en: 'Vault Root', zh: '根目录' });
+                                folderDisplayPath = '/'; // Or this.app.vault.getRoot().path
+                            }
+
                             metaEl.createSpan({ 
                                 cls: 'recent-file-folder', 
-                                text: file.parent ? file.parent.name : this.getLocalizedString({ en: 'Vault Root', zh: 'Vault 根目录' }),
-                                attr: { title: file.parent ? file.parent.path : this.app.vault.getRoot().path }
+                                text: folderDisplayName,
+                                attr: { title: folderDisplayPath }
                             });
                             metaEl.createSpan({ cls: 'note-time', text: moment(file.stat.mtime).fromNow() });
                         });
@@ -1077,10 +1088,21 @@ rerenderHomepageIfActive() {
                             attr: { 'data-href': file.path }
                         });
                         const metaEl = itemEl.createDiv({ cls: 'recent-file-meta' });
+                        let folderDisplayPath = '';
+                        let folderDisplayName = '';
+
+                        if (file.parent && file.parent.path !== '/') { // Check if parent exists and is not the root
+                            folderDisplayName = file.parent.name;
+                            folderDisplayPath = file.parent.path;
+                        } else {
+                            folderDisplayName = this.getLocalizedString({ en: 'Vault Root', zh: '根目录' });
+                            folderDisplayPath = '/'; // Or this.app.vault.getRoot().path
+                        }
+
                         metaEl.createSpan({ 
                             cls: 'recent-file-folder', 
-                            text: file.parent ? file.parent.name : this.getLocalizedString({ en: 'Vault Root', zh: 'Vault 根目录' }),
-                            attr: { title: file.parent ? file.parent.path : this.app.vault.getRoot().path }
+                            text: folderDisplayName,
+                            attr: { title: folderDisplayPath }
                         });
                         metaEl.createSpan({ cls: 'note-time', text: moment(file.stat.mtime).fromNow() });
                     });
