@@ -1,0 +1,10 @@
+{
+    "id": "custom-dynamic-homepage",
+    "name": "Custom Dynamic Homepage",
+    "version": "0.1.0",
+    "minAppVersion": "1.0.0",
+    "description": "Generates a dynamic homepage, initially based on a DataviewJS script.",
+    "author": "ToDo",
+    "authorUrl": "",
+    "isDesktopOnly": false
+}

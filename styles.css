@@ -1,0 +1,145 @@
+/* --- OBSIDIAN PLUGIN: Custom Dynamic Homepage Styles --- */
+
+/* --- GLOBAL HOMEPAGE STYLING ACTIVATOR --- */
+/* This class will be added to body by main.js when Home.md is active */
+
+/* 1. Full Width for Home.md */
+body.homepage-is-active .workspace-leaf-content[data-type="markdown"] .markdown-reading-view .markdown-preview-view,
+body.homepage-is-active .workspace-leaf-content[data-type="markdown"] .markdown-source-view.mod-cm6 .cm-sizer {
+    max-width: none !important;
+    width: 100% !important;
+    padding-left: max(env(safe-area-inset-left), 20px) !important;
+    padding-right: max(env(safe-area-inset-right), 20px) !important;
+    box-sizing: border-box !important;
+}
+
+/* 2. Hide Title and Header for Home.md */
+/* Hide the main header bar container */
+body.homepage-is-active .workspace-leaf-content[data-type="markdown"] .view-header {
+    display: none !important;
+}
+/* Explicitly hide the inline title element (which contains the filename) */
+body.homepage-is-active .workspace-leaf-content[data-type="markdown"] .inline-title {
+    display: none !important;
+}
+
+
+/* --- ORIGINAL HOMEPAGE STYLES (Adapted) --- */
+/* Sections 1 (Font), 2 (Grid), 3 (Sidebar Section) */
+.homepage-container { /* This class will be added to the output of the code block processor */
+    color: var(--text-normal);
+    padding-top: 20px; /* Adjust as needed since view-header is gone */
+    padding-bottom: 30px;
+}
+
+.homepage-grid-layout { display: grid; grid-template-columns: 2fr 1fr; gap: 30px; align-items: flex-start; }
+.main-content-area { display: flex; flex-direction: column; gap: 25px; }
+.sidebar-area { display: flex; flex-direction: column; gap: 30px; }
+@media (max-width: 900px) { .homepage-grid-layout { grid-template-columns: 1fr; } }
+
+.homepage-section {
+    background-color: var(--background-secondary); border-radius: 12px;
+    padding: 20px 25px; box-shadow: 0 6px 18px rgba(0,0,0,0.07);
+    border: 1px solid var(--background-modifier-border);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.sidebar-area > .homepage-section:hover,
+.main-content-area > .daily-display-section:hover { /* Assuming .daily-display-section is within .main-content-area */
+    border-color: var(--interactive-accent-alpha-05, rgba(82, 155, 255, 0.5));
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1), 0 0 0 1px var(--interactive-accent-alpha-02, rgba(82, 155, 255, 0.2));
+}
+
+.sidebar-area .homepage-section > h2 {
+    font-size: clamp(1.4em, 3.5vw, 1.8em); margin-top: 0; margin-bottom: 20px; padding-bottom: 10px;
+    color: var(--h2-color, var(--text-title-h2)); font-weight: 600;
+    border-bottom: 1px solid var(--background-modifier-border-hover);
+    display: flex; align-items: center;
+}
+.sidebar-area .homepage-section > h2.sidebar-title-centered { justify-content: center; text-align: center; }
+.sidebar-area .homepage-section > h2 i { margin-right: 10px; font-size: 0.9em; color: var(--interactive-accent); }
+
+/* Styling for Daily Display Section */
+.daily-display-section {}
+.daily-display-top-header { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; padding-bottom: 10px; border-bottom: 1px solid var(--background-modifier-border-hover); margin-bottom: 12px; }
+.daily-display-main-label { font-size: clamp(1.05em, 2.4vw, 1.25em); font-weight: 500; color: var(--h2-color, var(--text-title-h2)); display: flex; align-items: center; flex-shrink: 0; }
+.daily-display-main-label i { margin-right: 7px; font-size: 0.9em; color: var(--interactive-accent); }
+.daily-note-title-author-group { display: flex; align-items: baseline; flex-grow: 1; justify-content: flex-start; gap: 0 8px; min-width: 0; flex-wrap: nowrap; }
+.daily-note-title-inline { font-size: 1em; font-weight: 500; color: var(--text-normal); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.daily-note-title-inline a.internal-link { color: var(--text-accent); text-decoration: none; }
+.daily-note-title-inline a.internal-link:hover { text-decoration: underline; }
+.daily-note-author-inline { font-size: 0.8em; color: var(--text-faint); font-style: normal; white-space: nowrap; flex-shrink: 0; opacity: 0.9; padding-left: 0; }
+.empty-message.daily-header-empty { font-size: 1em; color: var(--text-faint); flex-grow:1; text-align: left; padding-left: 10px; }
+.daily-display-content-wrapper { padding-top: 0px; }
+.daily-note-content-rendered { font-size: var(--font-text-size, 0.95em); line-height: var(--line-height-normal, 1.65); color: var(--text-normal); max-height: 330px; overflow-y: auto; padding: 10px 12px; background-color: var(--background-primary); border-radius: 6px; border: 1px solid var(--background-modifier-border); }
+.daily-note-content-rendered > *:first-child { margin-top: 0 !important; }
+.daily-note-content-rendered > *:last-child { margin-bottom: 0 !important; }
+.daily-note-content-rendered p, .daily-note-content-rendered ul, .daily-note-content-rendered ol, .daily-note-content-rendered blockquote { margin-top: 0.4em; margin-bottom: 0.4em; }
+.daily-note-content-rendered h1, .daily-note-content-rendered h2, .daily-note-content-rendered h3, .daily-note-content-rendered h4, .daily-note-content-rendered h5, .daily-note-content-rendered h6 { margin-top: 0.8em; margin-bottom: 0.3em; line-height: 1.25; }
+.daily-note-content-rendered::-webkit-scrollbar { width: 5px; }
+.daily-note-content-rendered::-webkit-scrollbar-track { background: transparent; }
+.daily-note-content-rendered::-webkit-scrollbar-thumb { background: var(--text-faint); border-radius: 3px; }
+.daily-note-content-rendered::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* Vault Stats Section */
+.vault-stats-section {} /* Inherits .homepage-section */
+.vault-stats-content { display: flex; flex-direction: column; gap: 6px; padding-top: 5px; }
+.vault-stats-item {
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 0.9em;
+    padding: 6px 2px;
+    border-bottom: 1px dashed var(--background-modifier-border);
+}
+.vault-stats-item:last-child { border-bottom: none; }
+.vault-stats-label { color: var(--text-muted); }
+.vault-stats-value { font-weight: 500; color: var(--text-normal); }
+
+/* 4. Folder Card Styling */
+.folder-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 25px; }
+.folder-card { background-color: var(--background-primary-alt, var(--background-primary)); padding: 0; border-radius: 12px; border: 1px solid var(--background-modifier-border); transition: transform 0.3s ease-in-out, box-shadow 0.3s ease-in-out, border-color 0.3s ease-in-out;  display: flex; flex-direction: column; overflow: hidden; }
+.folder-card:hover { transform: translateY(-3px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); border-color: var(--interactive-accent-alpha-06); }
+.folder-card-header { padding: 15px 20px 15px 20px; }
+.folder-card-header h3 { font-size: clamp(1.25em, 2.8vw, 1.6em); margin: 0; padding-bottom: 10px; border-bottom: 1px solid var(--background-modifier-border-hover, #444); color: var(--h3-color, var(--text-title-h3, var(--text-normal))); font-weight: 600; }
+.folder-card-content { padding: 5px 15px 15px 15px; flex-grow: 1; display: flex; flex-direction: column; gap: 5px; }
+
+/* 5. Collapsible Sections & Note Lists */
+.collapsible-section { margin-bottom: 0; }
+.collapsible-section summary { padding: 8px 0px; font-weight: 500; color: var(--text-normal); cursor: pointer; list-style: none; display: flex; align-items: center; background-color: transparent; border-radius: 4px; transition: background-color 0.15s ease; }
+.collapsible-section summary:hover { background-color: var(--background-modifier-hover); color: var(--text-accent-hover, var(--text-accent)); }
+.collapsible-section summary::-webkit-details-marker { display: none; }
+.collapse-icon { display: inline-block; width: 1em; height: 1em; margin-right: 8px; transition: transform 0.25s ease-in-out; color: var(--text-faint); font-size: 0.8em; line-height: 1; text-align: center; flex-shrink: 0; }
+.collapse-icon::before { content: '❯'; display: inline-block; }
+.collapsible-section[open] > summary .collapse-icon { transform: rotate(90deg); color: var(--text-muted); }
+.collapsible-section summary .summary-text-label { flex-grow: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 8px; }
+.collapsible-section summary .note-count { flex-shrink: 0; font-size: 0.9em; color: var(--text-faint); }
+.notes-list-wrapper { background-color: var(--background-primary); padding: 8px 12px; border-radius: 8px; border: 1px solid var(--background-modifier-border); margin-top: 4px; margin-bottom: 8px; transition: border-color 0.2s ease, background-color 0.2s ease; }
+.collapsible-section[open] > .notes-list-wrapper:hover, .recent-updates-direct > .notes-list-wrapper:hover, .recent-file-item:hover { border-color: var(--interactive-accent); background-color: var(--background-modifier-hover, rgba(74, 144, 226, 0.1)); }
+.notes-list.enable-scroll-on-overflow { max-height: var(--notes-list-max-height-scroll, 250px); overflow-y: auto; } /* var(--notes-list-max-height-scroll) will be set by plugin settings */
+.notes-list { list-style-type: none; padding-left: 0; margin: 0; }
+.notes-list li { padding: 6px 2px; font-size: 0.9em; display: flex; justify-content: space-between; align-items: center; }
+.note-name-link { flex-grow: 1; flex-shrink: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-right: 10px; }
+.notes-list li .note-name-link a.internal-link { color: var(--text-muted); }
+.notes-list li .note-name-link a.internal-link:hover { color: var(--text-accent); }
+.note-meta-item { font-size: 0.85em; color: var(--text-faint); white-space: nowrap; flex-shrink: 0; margin-left: 8px; }
+.note-meta-item:first-child { margin-left: 0; }
+.recent-updates-direct { margin-top: 8px; }
+.card-inline-title { padding: 8px 0px; font-weight: 500; color: var(--text-normal); display: flex; align-items: center; margin-bottom: 0px; font-size: 1em; }
+.hide-overflow-notes .overflow-note-item { display: none; }
+.toggle-more-link { display: block; text-align: left; padding: 6px 0 0 0; font-size: 0.8em; color: var(--text-accent); cursor: pointer; text-decoration: none; margin-top: -4px; }
+.toggle-more-link:hover { text-decoration: underline; }
+
+/* Sections 6 & 7 (Sidebar) & Scrollbars */
+.recent-files-list { display: flex; flex-direction: column; gap: 8px; }
+.recent-file-item { background-color: var(--background-primary); padding: 10px 12px; border-radius: 8px; border: 1px solid var(--background-modifier-border); transition: border-color 0.2s ease, background-color 0.2s ease; }
+a.recent-file-link { font-size: 0.95em; font-weight: 500; display: block; margin-bottom: 4px; }
+.recent-file-meta { font-size: 0.75em; color: var(--text-faint); display: flex; justify-content: space-between; align-items: center; }
+.recent-file-folder { max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.recent-file-meta .note-time { font-size: 1em; }
+
+.quick-access-section h4 { font-size: clamp(1em, 2vw, 1.15em); margin-top: 8px; margin-bottom: 10px; color: var(--h4-color, var(--text-muted)); font-weight: 500; padding-bottom: 6px; border-bottom: 1px solid var(--background-modifier-border-hover); }
+.quick-access-item:not(:first-child) h4 { margin-top: 15px; }
+.tag-list, .custom-links-list, ul {
+    list-style-type: none; padding-left: 0; margin: 0;
+}
+.custom-links-list li {
+    padding: 5px 2px; font-size: 0.85em;
+}
