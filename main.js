@@ -47,6 +47,11 @@ function getPageDisplayName(file, frontmatter) {
  * @property {boolean} showVaultStats
  * @property {string} vaultStatsTitle
  * @property {string} excludedFromWordcount // Comma-separated string
+ * // ... (其他设置)
+ * @property {boolean} showTodoSidebarSection
+ * @property {string} todoSidebarSectionTitle
+ * @property {string} todoSidebarSectionSources
+ * @property {number} todoSidebarSectionLimit
  * @property {boolean} showTodoNotes
  * @property {string} todoTagDisplay
  * @property {string} todoTagQuery
@@ -58,10 +63,7 @@ function getPageDisplayName(file, frontmatter) {
  * @property {number} topTagsLimit
  * @property {boolean} showQuickAccessBookmarks // This will be for Obsidian's native bookmarks
  * @property {string} quickAccessBookmarksTitle
- * @property {boolean} showQuickAccessTasks
- * @property {string} quickAccessTasksTitle
- * @property {number} quickAccessTasksLimit
- * @property {string} quickAccessTasksSources // Dataview sources like "", "folder", or tags
+ * Dataview sources like "", "folder", or tags
  * @property {string} dailyDisplayMetadataField // The frontmatter field key for daily display filtering
  */
 
@@ -83,6 +85,10 @@ const DEFAULT_SETTINGS = {
     vaultStatsTitle: "文档统计",
     excludedFromWordcount: "",
     showTodoNotes: true,
+    showTodoSidebarSection: true,
+    todoSidebarSectionTitle: "待办事项", // 将在 SettingTab 中进行国际化
+    todoSidebarSectionSources: "", 
+    todoSidebarSectionLimit: 7,
     todoTagDisplay: "待整理笔记",
     todoTagQuery: "#待整理",
     todoFilesLimit: 5,
@@ -92,11 +98,7 @@ const DEFAULT_SETTINGS = {
     showQuickAccessTopTags: true,
     topTagsLimit: 10,
     showQuickAccessBookmarks: true,
-    quickAccessBookmarksTitle: "我的书签",
-    showQuickAccessTasks: true,
-    quickAccessTasksTitle: "待办清单",
-    quickAccessTasksLimit: 7,
-    quickAccessTasksSources: "" // Empty string means all tasks from vault
+    quickAccessBookmarksTitle: "我的书签"
 };
 
 const BODY_CLASS_FOR_HOMEPAGE = 'homepage-is-active';
@@ -816,6 +818,121 @@ rerenderHomepageIfActive() {
             }
         }
 
+        // --- SECTION: Sidebar To-Do List ---
+        // #SECTION_SIDEBAR_TODO_LIST 
+        if (this.settings.showTodoSidebarSection) {
+            const todoSidebarSection = sidebarArea.createEl('section', { cls: 'homepage-section todo-sidebar-section' });
+            const titleEl = todoSidebarSection.createEl('h2', { cls: 'sidebar-title-centered' });
+            titleEl.createEl('i', { cls: 'fas fa-list-check' }); // FontAwesome icon for tasks
+            titleEl.appendText(` ${this.settings.todoSidebarSectionTitle}`);
+
+            const tasksListContainer = todoSidebarSection.createDiv({ cls: 'todo-sidebar-list-container' });
+
+            try {
+                const limit = this.settings.todoSidebarSectionLimit;
+                const sourcesQuery = this.settings.todoSidebarSectionSources.trim().toLowerCase();
+                const excludedTopFoldersArray = this.settings.excludedTopFolders.split(',')
+                    .map(f => f.trim().toLowerCase()).filter(f => f.length > 0);
+
+                let allRelevantFiles = this.app.vault.getMarkdownFiles();
+
+                // Filter files based on sourcesQuery (simplified) - Copied and adapted
+                if (sourcesQuery) {
+                    if (sourcesQuery.startsWith('#')) {
+                        const tagName = sourcesQuery.substring(1);
+                        allRelevantFiles = allRelevantFiles.filter(file => {
+                            const cache = this.app.metadataCache.getFileCache(file);
+                            const tags = cache?.frontmatter?.tags;
+                            let fileTags = cache?.tags?.map(t => t.tag.substring(1).toLowerCase()) || [];
+                            if (tags) {
+                                if (Array.isArray(tags)) fileTags = fileTags.concat(tags.map(t => String(t).toLowerCase()));
+                                else fileTags.push(String(tags).toLowerCase());
+                            }
+                            return [...new Set(fileTags)].includes(tagName);
+                        });
+                    } else if (sourcesQuery.includes('/') || this.app.vault.getAbstractFileByPath(sourcesQuery) instanceof TFolder) { 
+                        const folderPath = sourcesQuery.endsWith('/') ? sourcesQuery : sourcesQuery + "/";
+                        allRelevantFiles = allRelevantFiles.filter(file => file.path.toLowerCase().startsWith(folderPath.toLowerCase()));
+                    } else if (sourcesQuery) { // General keyword in path (less reliable for tasks)
+                        allRelevantFiles = allRelevantFiles.filter(file => file.path.toLowerCase().includes(sourcesQuery));
+                    }
+                }
+                
+                const allTasks = [];
+                for (const file of allRelevantFiles) {
+                    const filePathLower = file.path.toLowerCase();
+                    if (excludedTopFoldersArray.some(exFolder => filePathLower.startsWith(exFolder + "/"))) {
+                        continue; 
+                    }
+
+                    const cache = this.app.metadataCache.getFileCache(file);
+                    if (cache && cache.listItems) {
+                        for (const item of cache.listItems) {
+                            if (item.task && (item.task === ' ' || item.task === '/')) { 
+                                const taskTextContent = await this.getOriginalTaskText(file, item.position.start.line);
+                                allTasks.push({
+                                    text: taskTextContent,
+                                    file: file,
+                                    line: item.position.start.line,
+                                    status: item.task, 
+                                    mtime: file.stat.mtime 
+                                });
+                            }
+                        }
+                    }
+                } 
+
+                allTasks.sort((a, b) => {
+                    if (a.file.stat.mtime !== b.file.stat.mtime) {
+                        return b.file.stat.mtime - a.file.stat.mtime; 
+                    }
+                    return a.line - b.line; 
+                });
+
+                const tasksToShow = allTasks.slice(0, limit);
+
+                if (tasksToShow.length > 0) {
+                    tasksToShow.forEach(task => {
+                        // Each task item is now a link itself
+                        const taskItemLink = tasksListContainer.createEl('a', {
+                            cls: 'internal-link todo-sidebar-item', // Item itself is the link
+                            href: task.file.path, // CHANGED: Link to the file path directly
+                            attr: { 
+                                'data-href': task.file.path, // CHANGED: data-href also points to the file path
+                                // 'title': task.file.path // REMOVED or SIMPLIFIED: title attribute is less critical if hover shows file preview
+                                                             // You can keep it if you want a simple path tooltip, or remove it.
+                                                             // If kept, just task.file.path is enough.
+                            }
+                        });
+                        
+                        const taskTextSpan = taskItemLink.createSpan({ cls: 'todo-sidebar-item-text' });
+                        let taskContent = task.text; 
+                        
+                        const taskRenderComponent = new Component();
+                        this.addChild(taskRenderComponent);
+                        MarkdownRenderer.renderMarkdown(taskContent, taskTextSpan, task.file.path, taskRenderComponent)
+                            .finally(() => {
+                                if (taskRenderComponent && !taskRenderComponent._loaded) {
+                                    this.removeChild(taskRenderComponent);
+                                }
+                            });
+                    });
+                } else {
+                    tasksListContainer.createEl('p', { 
+                        cls: 'empty-message', 
+                        text: this.getLocalizedString({ en: 'All tasks completed!', zh: '所有任务已完成！' }) 
+                    });
+                }
+
+            } catch (error) {
+                console.error("CustomHomepage: Error processing Sidebar To-Do List:", error);
+                tasksListContainer.createEl('p', { 
+                    cls: 'empty-message', 
+                    text: this.getLocalizedString({ en: 'Error loading tasks. Check console.', zh: '加载待办清单出错，请查看控制台。' }) 
+                });
+            }
+        }
+
         // --- SECTION: To-Do Notes ---
         // #SECTION_TODO_NOTES
         if (this.settings.showTodoNotes) {
@@ -1193,150 +1310,6 @@ rerenderHomepageIfActive() {
                     });
                 }
             }
-
-            // --- Sub-Section: Quick Access Tasks (within Quick Access) ---
-            // #SUBSECTION_QA_TASKS (New marker)
-            if (this.settings.showQuickAccess && this.settings.showQuickAccessTasks) {
-                const tasksContainer = quickAccessSection.createDiv({cls: 'quick-access-item'});
-                tasksContainer.createEl('h4', { text: this.settings.quickAccessTasksTitle });
-                
-                // Placeholder for tasks. Using a div that can host richer content than a simple ul.
-                // The original CSS uses #quick-access-tasks-placeholder ul for styling, so we add a ul inside.
-                const tasksPlaceholder = tasksContainer.createDiv({ id: `quick-access-tasks-placeholder-${Date.now()}` });
-                const taskListEl = tasksPlaceholder.createEl('ul', {cls: 'task-list'}); // Mimic structure for CSS
-
-                try {
-                    const limit = this.settings.quickAccessTasksLimit;
-                    const sourcesQuery = this.settings.quickAccessTasksSources.trim().toLowerCase();
-                    const excludedTopFoldersArray = this.settings.excludedTopFolders.split(',')
-                        .map(f => f.trim().toLowerCase()).filter(f => f.length > 0);
-
-                    let allRelevantFiles = this.app.vault.getMarkdownFiles();
-
-                    // Filter files based on sourcesQuery (simplified)
-                    if (sourcesQuery) {
-                        if (sourcesQuery.startsWith('#')) {
-                            const tagName = sourcesQuery.substring(1);
-                            allRelevantFiles = allRelevantFiles.filter(file => {
-                                const cache = this.app.metadataCache.getFileCache(file);
-                                const tags = cache?.frontmatter?.tags;
-                                let fileTags = cache?.tags?.map(t => t.tag.substring(1).toLowerCase()) || [];
-                                if (tags) {
-                                    if (Array.isArray(tags)) fileTags = fileTags.concat(tags.map(t => String(t).toLowerCase()));
-                                    else fileTags.push(String(tags).toLowerCase());
-                                }
-                                return [...new Set(fileTags)].includes(tagName);
-                            });
-                        } else if (sourcesQuery.includes('/')) { // Folder
-                            const folderPath = sourcesQuery.endsWith('/') ? sourcesQuery : sourcesQuery + "/";
-                            allRelevantFiles = allRelevantFiles.filter(file => file.path.toLowerCase().startsWith(folderPath));
-                        } else { // General keyword in path
-                            allRelevantFiles = allRelevantFiles.filter(file => file.path.toLowerCase().includes(sourcesQuery));
-                        }
-                    }
-                    
-                    const allTasks = [];
-                    // Use for...of loop to allow await inside for asynchronous operations
-                    for (const file of allRelevantFiles) {
-                        const filePathLower = file.path.toLowerCase();
-                        if (excludedTopFoldersArray.some(exFolder => filePathLower.startsWith(exFolder + "/"))) {
-                            continue; // Skip this file
-                        }
-
-                        const cache = this.app.metadataCache.getFileCache(file);
-                        if (cache && cache.listItems) {
-                            for (const item of cache.listItems) { // Can use for...of for inner loop too
-                                // console.log 之前的调试语句可以暂时保留或移除
-                                // console.log("Inspecting task item:", item, ..., `File: ${file.path}`, `Line: ${item.position.start.line}`);
-                                
-                                if (item.task && (item.task === ' ' || item.task === '/')) { 
-                                    const taskTextContent = await this.getOriginalTaskText(file, item.position.start.line);
-                                    allTasks.push({
-                                        text: taskTextContent, // Use text from getOriginalTaskText
-                                        file: file,
-                                        line: item.position.start.line,
-                                        status: item.task, 
-                                        mtime: file.stat.mtime 
-                                    });
-                                }
-                            }
-                        }
-                    } // End of for...of allRelevantFiles
-
-                    // Sort tasks: by file mtime (newest files first), then by line number (tasks earlier in file first)
-                    // This is a simple sort. Dataview's t.due etc. is more advanced.
-                    allTasks.sort((a, b) => {
-                        if (a.file.stat.mtime !== b.file.stat.mtime) {
-                            return b.file.stat.mtime - a.file.stat.mtime; // Newest files first
-                        }
-                        return a.line - b.line; // Earlier tasks in file first
-                    });
-
-                    const tasksToShow = allTasks.slice(0, limit);
-
-                    if (tasksToShow.length > 0) {
-                        tasksToShow.forEach(task => {
-                            const listItem = taskListEl.createEl('li', {cls: 'task-list-item'}); // Class from original CSS
-                            
-                            // Create a checkbox (visual only for now, not interactive to change file)
-                            const checkbox = listItem.createEl('input', { type: 'checkbox', cls: 'task-list-item-checkbox' });
-                            checkbox.checked = false; // All displayed tasks are incomplete
-                            if (task.status === '/') checkbox.indeterminate = true; // For "in progress"
-                            checkbox.disabled = true; // Make it read-only to avoid confusion
-
-                            const taskTextSpan = listItem.createSpan({cls: 'task-list-item-text'});
-                            
-                            // Render task text as Markdown to allow internal links etc. within the task
-                            // We need to be careful here if task.text contains the checkbox part like "- [ ] "
-                            // It's often better to get the text *after* the "- [ ] " part.
-                            // Let's assume task.text from listItems is just the content.
-                            // If not, we'll need to strip the "- [status] " part.
-                            let taskContent = task.text; 
-                            // A simple regex to strip markdown task prefix if present in item.text
-                            //taskContent = taskContent.replace(/^-\s*\[.?\]\s*/, '').trim();
-
-
-                            // Create a component for the MarkdownRenderer to render links within task text correctly
-                            const taskRenderComponent = new Component(); // Create a new component for this rendering
-                            this.addChild(taskRenderComponent); // Manage its lifecycle by adding as child to plugin
-                            
-                            MarkdownRenderer.renderMarkdown(
-                                taskContent, // Just the text content of the task
-                                taskTextSpan, 
-                                task.file.path, // Source path for link resolution
-                                taskRenderComponent // Component for context
-                            ).finally(() => {
-                                // Clean up the component once rendering is done if it's not needed further
-                                if (taskRenderComponent && !taskRenderComponent._loaded) { // Check if it's not already unloaded
-                                     this.removeChild(taskRenderComponent); // Important to avoid memory leaks
-                                }
-                            });
-
-                            // Add a link to the note itself, perhaps to the specific line
-                            const linkToNote = listItem.createEl('a', {
-                                cls: 'internal-link task-file-link', // Add a class for styling
-                                text: ` ${task.file.basename}`,
-                                href: task.file.path, 
-                                attr: { 'data-href': task.file.path }
-                            });
-                            linkToNote.style.fontSize = "0.8em"; // Make file link smaller
-                            linkToNote.style.marginLeft = "8px";
-                        });
-                    } else {
-                        taskListEl.createEl('li').createEl('p', { 
-                            cls: 'empty-message', 
-                            text: this.getLocalizedString({ en: 'All tasks completed!', zh: '所有任务已完成！' }) 
-                        });
-                    }
-
-                } catch (error) {
-                    console.error("CustomHomepage: Error processing Quick Access Tasks:", error);
-                    taskListEl.createEl('li').createEl('p', { 
-                        cls: 'empty-message', 
-                        text: this.getLocalizedString({ en: 'Error loading tasks. Check console.', zh: '加载待办清单出错，请查看控制台。' }) 
-                    });
-                }
-            }
         }
 
         // --- JAVASCRIPT FOR INTERACTIVITY (Placeholder) ---
@@ -1696,6 +1669,81 @@ class HomepageSettingTab extends PluginSettingTab {
                 }));
 
 
+        containerEl.createEl('h4', { 
+            text: this.plugin.getLocalizedString({
+                en: "Sidebar: To-Do List", 
+                zh: "侧边栏：待办事项"
+            }),
+            cls: "setting-item-heading" // Optional class for styling headings
+        }).style.marginTop = "20px"; // Add some space
+
+        // --- SETTING: Show Sidebar To-Do List ---
+        // #SETTING_ITEM_SHOW_TODO_SIDEBAR_SECTION 
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: "Show To-Do List in Sidebar", 
+                zh: "在侧边栏显示待办列表"
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: "Display a list of pending tasks directly in the sidebar.",
+                zh: "在侧边栏直接显示一个待处理任务的列表。"
+            }))
+            .addToggle(toggle => toggle
+                .setValue(this.plugin.settings.showTodoSidebarSection)
+                .onChange(async (value) => {
+                    this.plugin.settings.showTodoSidebarSection = value;
+                    await this.plugin.saveSettings();
+                }));
+
+        // --- SETTING: Sidebar To-Do List Title ---
+        // #SETTING_ITEM_TODO_SIDEBAR_SECTION_TITLE
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: "Sidebar To-Do List Title", 
+                zh: "侧边栏待办列表标题"
+            }))
+            .addText(text => text
+                .setPlaceholder(DEFAULT_SETTINGS.todoSidebarSectionTitle)
+                .setValue(this.plugin.settings.todoSidebarSectionTitle)
+                .onChange(async (value) => {
+                    this.plugin.settings.todoSidebarSectionTitle = value.trim() || DEFAULT_SETTINGS.todoSidebarSectionTitle;
+                    await this.plugin.saveSettings();
+                }));
+
+        // --- SETTING: Sidebar To-Do Sources ---
+        // #SETTING_ITEM_TODO_SIDEBAR_SECTION_SOURCES
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: "Sidebar To-Do Sources", 
+                zh: "侧边栏待办来源"
+            }))
+            .setDesc(this.plugin.getLocalizedString({
+                en: 'Leave empty for all tasks. Otherwise, use a folder path (e.g., "Projects/") or a tag (e.g., "#todo").', 
+                zh: '留空则包含所有任务。否则，可使用文件夹路径 (例如："项目/") 或标签 (例如："#待办")。'
+            }))
+            .addText(text => text
+                .setPlaceholder(this.plugin.getLocalizedString({en: 'e.g., "Inbox/" or "#urgent"', zh: '例如："收件箱/" 或 "#紧急"'}))
+                .setValue(this.plugin.settings.todoSidebarSectionSources)
+                .onChange(async (value) => {
+                    this.plugin.settings.todoSidebarSectionSources = value.trim(); // Allow empty string
+                    await this.plugin.saveSettings();
+                }));
+
+        // --- SETTING: Sidebar To-Do Limit ---
+        // #SETTING_ITEM_TODO_SIDEBAR_SECTION_LIMIT
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({
+                en: "Sidebar To-Do Limit", 
+                zh: "侧边栏待办数量上限"
+            }))
+            .addSlider(slider => slider
+                .setLimits(1, 30, 1) // Min, Max, Step
+                .setValue(this.plugin.settings.todoSidebarSectionLimit)
+                .setDynamicTooltip()
+                .onChange(async (value) => {
+                    this.plugin.settings.todoSidebarSectionLimit = value;
+                    await this.plugin.saveSettings();
+                }));
         // --- SETTING: Show To-Do Notes ---
         // #SETTING_ITEM_SHOW_TODO_NOTES
         new Setting(containerEl)
@@ -1825,45 +1873,6 @@ class HomepageSettingTab extends PluginSettingTab {
         new Setting(containerEl)
             .setName(this.plugin.getLocalizedString({en: 'Bookmarks Title (Quick Access)', zh: '书签模块标题 (快速访问)'}))
             .addText(text => text.setValue(this.plugin.settings.quickAccessBookmarksTitle).onChange(async val => { this.plugin.settings.quickAccessBookmarksTitle = val || DEFAULT_SETTINGS.quickAccessBookmarksTitle; await this.plugin.saveSettings(); }));
-
-
-        // --- SETTING: Show Tasks in Quick Access ---
-        // #SETTING_ITEM_SHOW_QA_TASKS
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({
-                en: 'Show "Tasks" in Quick Access',
-                zh: '在快速访问中显示“待办清单”'
-            }))
-            .setDesc(this.plugin.getLocalizedString({
-                en: "Requires 'Show Quick Access Section' to be enabled.",
-                zh: "需要启用“显示‘快速访问’模块 (总开关)”。"
-            }))
-            .addToggle(toggle => toggle
-                .setValue(this.plugin.settings.showQuickAccessTasks)
-                .onChange(async (value) => {
-                    this.plugin.settings.showQuickAccessTasks = value;
-                    await this.plugin.saveSettings();
-                }));
-
-        // --- SETTING: QUICK_ACCESS_TASKS_TITLE ---
-        // #SETTING_ITEM_QUICK_ACCESS_TASKS_TITLE
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({en: 'Tasks Title (Quick Access)', zh: '待办清单模块标题 (快速访问)'}))
-            .addText(text => text.setValue(this.plugin.settings.quickAccessTasksTitle).onChange(async val => { this.plugin.settings.quickAccessTasksTitle = val || DEFAULT_SETTINGS.quickAccessTasksTitle; await this.plugin.saveSettings(); }));
-        
-        // --- SETTING: QUICK_ACCESS_TASKS_LIMIT ---
-        // #SETTING_ITEM_QUICK_ACCESS_TASKS_LIMIT
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({en: 'Tasks Limit (Quick Access)', zh: '待办清单数量上限 (快速访问)'}))
-            .addSlider(slider => slider.setLimits(1, 20, 1).setValue(this.plugin.settings.quickAccessTasksLimit).setDynamicTooltip().onChange(async val => {this.plugin.settings.quickAccessTasksLimit = val; await this.plugin.saveSettings();}));
-
-        // --- SETTING: QUICK_ACCESS_TASKS_SOURCES ---
-        // #SETTING_ITEM_QUICK_ACCESS_TASKS_SOURCES
-        new Setting(containerEl)
-            .setName(this.plugin.getLocalizedString({en: 'Tasks Sources (Quick Access)', zh: '待办清单来源 (快速访问)'}))
-            .setDesc(this.plugin.getLocalizedString({en: 'Dataview query for task sources (e.g., "" for all, "folder", #tag).', zh: '用于指定任务来源的 Dataview 查询 (例如："" 代表所有，"文件夹", #标签)。'}))
-            .addText(text => text.setValue(this.plugin.settings.quickAccessTasksSources).onChange(async val => { this.plugin.settings.quickAccessTasksSources = val; await this.plugin.saveSettings(); }));
-
 
         // --- FINAL NOTE IN SETTINGS ---
         // #SETTINGS_FINAL_NOTE
