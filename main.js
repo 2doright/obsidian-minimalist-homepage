@@ -11,23 +11,6 @@ const { Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, PluginSettingTab, S
  * @param {object} [frontmatter] Optional pre-fetched frontmatter.
  * @returns {string}
  */
-function getPageDisplayName(file, frontmatter) {
-    if (!file) return "无效笔记"; // Invalid Note
-
-    const fm = frontmatter || this.app.metadataCache.getFileCache(file)?.frontmatter;
-
-    if (fm && fm.title && String(fm.title).trim() !== "") {
-        return String(fm.title).trim();
-    }
-    if (file.basename && !/^(未命名|Untitled|无标题)/i.test(file.basename.trim())) {
-        return file.basename.trim();
-    }
-    const nameWithoutExt = file.name.replace(/\.md$/i, '').trim();
-    if (nameWithoutExt && !/^(未命名|Untitled|无标题)/i.test(nameWithoutExt)) {
-        return nameWithoutExt;
-    }
-    return "未命名笔记"; // Unnamed Note
-}
 
 // --- PLUGIN SETTINGS INTERFACE AND DEFAULT VALUES ---
 // #SETTINGS_INTERFACE_DEFAULT
@@ -232,7 +215,41 @@ class CustomDynamicHomepagePlugin extends Plugin {
             document.body.classList.remove(BODY_CLASS_FOR_HOMEPAGE);
         }
     }
-    
+
+    // #UTILITY_GET_PAGE_DISPLAY_NAME
+    /**
+     * Gets a display-friendly name for a page/file.
+     * Prioritizes frontmatter 'title', then filename (if not generic), then full name without .md.
+     * @param {TFile} file The file object.
+     * @param {object} [frontmatter] Optional pre-fetched frontmatter.
+     * @returns {string}
+     */
+    getPageDisplayName(file, frontmatter) { // 注意，作为方法，第一个参数不是 this
+        if (!file) return this.getLocalizedString({ en: "Invalid Note", zh: "无效笔记" });
+
+        // 'this' 现在指向插件实例，所以 this.app 是可用的
+        const fm = frontmatter || this.app.metadataCache.getFileCache(file)?.frontmatter;
+
+        if (fm && fm.title && String(fm.title).trim() !== "") {
+            return String(fm.title).trim();
+        }
+        // 使用 this.getLocalizedString 来国际化 "未命名" 等字符串
+        const unnamedPatterns = [
+            this.getLocalizedString({ en: "untitled", zh: "未命名" }),
+            this.getLocalizedString({ en: "no title", zh: "无标题" }) // 添加更多可能的模式
+        ];
+        const unnamedRegex = new RegExp(`^(${unnamedPatterns.join('|')})`, 'i');
+
+
+        if (file.basename && !unnamedRegex.test(file.basename.trim())) {
+            return file.basename.trim();
+        }
+        const nameWithoutExt = file.name.replace(/\.md$/i, '').trim();
+        if (nameWithoutExt && !unnamedRegex.test(nameWithoutExt)) {
+            return nameWithoutExt;
+        }
+        return this.getLocalizedString({ en: "Unnamed Note", zh: "未命名笔记" });
+    }
     // --- UTILITY: Internationalization Helper ---
     // #UTILITY_I18N_HELPER
     /**
@@ -463,7 +480,7 @@ rerenderHomepageIfActive() {
                             const titleAuthorGroup = dailyHeader.createDiv({cls: 'daily-note-title-author-group'});
                             
                             // Get display name (passing app for metadataCache access if needed by the function)
-                            const noteDisplayName = getPageDisplayName(dailyNoteToRender.file, dailyNoteToRender.frontmatter); 
+                            const noteDisplayName = this.getPageDisplayName(dailyNoteToRender.file, dailyNoteToRender.frontmatter); 
                                                         // ^ 如果 getPageDisplayName 改为纯函数，则传递 this.app.metadataCache
 
                             titleAuthorGroup.createSpan({ cls: 'daily-note-title-inline' })
@@ -484,7 +501,7 @@ rerenderHomepageIfActive() {
                                 } else if (typeof rawAuthor === 'object' && rawAuthor.path && typeof rawAuthor.path === 'string') { // Dataview link object
                                     const authorPage = this.app.vault.getAbstractFileByPath(rawAuthor.path);
                                     if (authorPage instanceof TFile) {
-                                        authorText = getPageDisplayName(authorPage, this.app.metadataCache.getFileCache(authorPage)?.frontmatter) || rawAuthor.path.split('/').pop().replace(/\.md$/, '');
+                                        authorText = this.getPageDisplayName(authorPage, this.app.metadataCache.getFileCache(authorPage)?.frontmatter) || rawAuthor.path.split('/').pop().replace(/\.md$/, '');
                                     } else {
                                         authorText = rawAuthor.path.split('/').pop().replace(/\.md$/, '');
                                     }
@@ -603,7 +620,7 @@ rerenderHomepageIfActive() {
                                     noteNameLink.createEl('a', {
                                         cls: 'internal-link',
                                         href: note.path,
-                                        text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                                        text: this.getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
                                         attr: { 'data-href': note.path }
                                     });
                                     li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
@@ -654,7 +671,7 @@ rerenderHomepageIfActive() {
                                 noteNameLink.createEl('a', {
                                     cls: 'internal-link',
                                     href: note.path,
-                                    text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                                    text: this.getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
                                     attr: { 'data-href': note.path }
                                 });
                                 li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
@@ -697,7 +714,7 @@ rerenderHomepageIfActive() {
                                 noteNameLink.createEl('a', {
                                     cls: 'internal-link',
                                     href: note.path,
-                                    text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                                    text: this.getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
                                     attr: { 'data-href': note.path }
                                 });
                                 li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
@@ -741,7 +758,7 @@ rerenderHomepageIfActive() {
                         noteNameLink.createEl('a', {
                             cls: 'internal-link',
                             href: note.path,
-                            text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                            text: this.getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
                             attr: { 'data-href': note.path }
                         });
                         li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
@@ -780,7 +797,7 @@ rerenderHomepageIfActive() {
                                 noteNameLink.createEl('a', {
                                     cls: 'internal-link',
                                     href: note.path,
-                                    text: getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
+                                    text: this.getPageDisplayName(note, this.app.metadataCache.getFileCache(note)?.frontmatter),
                                     attr: { 'data-href': note.path }
                                 });
                                 li.createSpan({ cls: 'note-meta-item note-time', text: moment(note.stat.mtime).fromNow() });
@@ -1084,7 +1101,7 @@ rerenderHomepageIfActive() {
                             const itemEl = todoListContainer.createDiv({ cls: 'recent-file-item' });
                             itemEl.createEl('a', {
                                 cls: 'internal-link recent-file-link',
-                                text: getPageDisplayName(file, this.app.metadataCache.getFileCache(file)?.frontmatter),
+                                text: this.getPageDisplayName(file, this.app.metadataCache.getFileCache(file)?.frontmatter),
                                 href: file.path,
                                 attr: { 'data-href': file.path }
                             });
@@ -1166,7 +1183,7 @@ rerenderHomepageIfActive() {
                         const itemEl = recentListContainer.createDiv({ cls: 'recent-file-item' });
                         itemEl.createEl('a', {
                             cls: 'internal-link recent-file-link',
-                            text: getPageDisplayName(file, this.app.metadataCache.getFileCache(file)?.frontmatter),
+                            text: this.getPageDisplayName(file, this.app.metadataCache.getFileCache(file)?.frontmatter),
                             href: file.path,
                             attr: { 'data-href': file.path }
                         });
