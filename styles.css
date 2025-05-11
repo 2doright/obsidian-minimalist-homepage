@@ -208,3 +208,35 @@ a.recent-file-link { font-size: 0.95em; font-weight: 500; display: block; margin
      background-color: transparent; /* Ensure no conflicting background */
      border: none; /* Ensure no conflicting border */
  }
+ 
+ /* --- Dynamic Module Filter Group Editor --- */
+.filter-group-editor-container {
+    border: 1px solid var(--background-modifier-border);
+    padding: 15px;
+    margin-top: 10px;
+    border-radius: var(--radius-m);
+    background-color: var(--background-secondary-alt); /* Slightly different background */
+}
+
+.filter-conditions-list {
+    margin-top: 10px;
+    margin-bottom: 10px;
+    padding-left: 10px; /* Indent conditions slightly */
+}
+
+.filter-condition-item {
+    padding: 8px 5px;
+    border-bottom: 1px dashed var(--background-modifier-border-hover);
+    background-color: var(--background-primary); /* Give condition items a distinct background */
+    margin-bottom: 5px;
+    border-radius: var(--radius-s);
+}
+.filter-condition-item:last-child {
+    border-bottom: none;
+}
+
+.empty-message-compact { /* For "No conditions yet" */
+    color: var(--text-faint);
+    font-size: 0.9em;
+    padding: 5px 0;
+}

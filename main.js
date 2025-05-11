@@ -30,7 +30,6 @@ const { Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, PluginSettingTab, S
  * @property {boolean} showVaultStats
  * @property {string} vaultStatsTitle
  * @property {string} excludedFromWordcount // Comma-separated string
- * // ... (其他设置)
  * @property {boolean} showTodoSidebarSection
  * @property {string} todoSidebarSectionTitle
  * @property {string} todoSidebarSectionSources
@@ -48,9 +47,45 @@ const { Plugin, MarkdownView, WorkspaceLeaf, TFile, TFolder, PluginSettingTab, S
  * @property {string} quickAccessBookmarksTitle
  * Dataview sources like "", "folder", or tags
  * @property {string} dailyDisplayMetadataField // The frontmatter field key for daily display filtering
+ * @property {DynamicNoteListModule[]} dynamicNoteListModules
  */
 
-/** @type {HomepageSettings} */
+// #INTERFACE_DYNAMIC_NOTE_LIST_MODULE
+
+/**
+* @typedef {'contains' | 'not_contains' | 'is' | 'is_not' | 'starts_with' | 'ends_with' | 'exists' | 'not_exists' | 'greater_than' | 'less_than' | 'matches_regex'} FilterOperator
+*/
+
+/**
+* Represents a single filter condition.
+* @typedef {Object} FilterCondition
+* @property {string} id - Unique ID for this condition.
+* @property {string} property - The document property (e.g., "tags", "form", "status"). "tags" is special.
+* @property {FilterOperator} operator
+* @property {any} [value] - The value to compare against. Not needed for 'exists'/'not_exists'.
+*                         For 'tags' with 'contains'/'not_contains', this should be a single tag string.
+*/
+
+/**
+* Represents a group of filter conditions. (MVP: No nested groups in FilterGroup itself initially)
+* @typedef {Object} FilterGroup
+* @property {'AND' | 'OR'} logic - How conditions *within* this group are combined.
+* @property {FilterCondition[]} conditions - Array of individual filter conditions.
+* @property {boolean} [isNegated] - If true, the result of this group (conditions combined by logic) is negated.
+*/
+
+/**
+* Settings for a single dynamic note list module instance.
+* @typedef {Object} DynamicNoteListModule
+* @property {string} id - Unique ID for the module instance.
+* @property {string} userDefinedTitle - User-friendly title for this module in settings.
+* @property {boolean} enabled - Whether this module instance is active.
+* @property {FilterGroup} filterGroup - The filter group for this module.
+* @property {{columns: number, pillColors: {and: string, or: string, not: string}}} displaySettings
+*           - columns: Number of columns for display.
+*           - pillColors: Configurable colors for filter pills.
+*/
+
 const DEFAULT_SETTINGS = {
     homepageFilePath: "Home.md",
     openHomepageOnStartup: false, // 默认关闭
@@ -82,7 +117,31 @@ const DEFAULT_SETTINGS = {
     showQuickAccessTopTags: true,
     topTagsLimit: 10,
     showQuickAccessBookmarks: true,
-    quickAccessBookmarksTitle: "我的书签"
+    quickAccessBookmarksTitle: "我的书签",
+    dynamicNoteListModules: [ // Example of one default module, can be empty array
+        {
+            id: `dnl-${Date.now()}`, // Simple unique ID generation
+            userDefinedTitle: "My First Dynamic List",
+            enabled: true,
+            filterGroup: {
+                logic: 'AND',
+                conditions: [
+                    // Example: { id: `fc-${Date.now()}`, property: 'tags', operator: 'contains', value: 'important' },
+                    // Example: { id: `fc-${Date.now()+1}`, property: 'status', operator: 'is', value: 'active' }
+                ],
+                isNegated: false
+            },
+            displaySettings: {
+                columns: 3,
+                pillColors: { // Default colors
+                    and: 'var(--color-green)', // Or specific hex/rgb like '#4CAF50'
+                    or: 'var(--color-orange)',  // '#FF9800'
+                    not: 'var(--color-red)'     // '#F44336'
+                }
+            }
+        }
+    ],
+    dynamicNoteListModules: [] // Start with an empty array for a cleaner default
 };
 
 const BODY_CLASS_FOR_HOMEPAGE = 'homepage-is-active';
@@ -563,7 +622,7 @@ rerenderHomepageIfActive() {
         const mainContentArea = gridLayout.createDiv({ cls: 'main-content-area' });
         const sidebarArea = gridLayout.createDiv({ cls: 'sidebar-area' });
 
-         // --- SECTION: Daily Display ---
+        // --- SECTION: Daily Display ---
         // #SECTION_DAILY_DISPLAY
         if (this.settings.showDailyDisplay) {
             const dailySection = mainContentArea.createEl('section', { cls: 'homepage-section daily-display-section' });
@@ -680,6 +739,27 @@ rerenderHomepageIfActive() {
                 dailyNoteContentEl.show();
             }
         }
+
+        // --- SECTION: Dynamic Note List ---
+        // #SECTION_DYNAMIC_NOTE_LIST_MODULES_AREA
+        const dynamicModulesArea = mainContentArea.createDiv({cls: 'dynamic-note-lists-area'});
+        this.settings.dynamicNoteListModules.forEach(moduleConfig => {
+            if (!moduleConfig.enabled) return;
+
+            const moduleInstanceEl = dynamicModulesArea.createDiv({cls: 'dynamic-note-list-instance'});
+            // 1. Render Filter Pills (based on moduleConfig.filterGroup)
+            // this.renderFilterPills(moduleInstanceEl.createDiv({cls: 'filter-pills-container'}), moduleConfig.filterGroup, moduleConfig.displaySettings.pillColors);
+            
+            // 2. Filter notes (this will be an async operation)
+            // const filteredNotes = await this.evaluateModuleFilters(this.app.vault.getMarkdownFiles(), moduleConfig.filterGroup);
+            
+            // 3. Render notes in columns
+            // const notesGridEl = moduleInstanceEl.createDiv({cls: 'notes-grid-display'});
+            // notesGridEl.style.gridTemplateColumns = `repeat(${moduleConfig.displaySettings.columns}, 1fr)`;
+            // filteredNotes.forEach(note => { /* render note item/card */ });
+
+            moduleInstanceEl.createEl('p', {text: `Module: ${moduleConfig.userDefinedTitle} - Content placeholder`}); // Temporary
+        });
 
         // --- SECTION: Folder Grid ---
         // #SECTION_FOLDER_GRID
@@ -1740,6 +1820,221 @@ class HomepageSettingTab extends PluginSettingTab {
                     this.plugin.settings.dailyDisplayForms = value; // User input, will be processed later
                     await this.plugin.saveSettings();
                 }));
+
+        containerEl.createEl('h4', { 
+            text: this.plugin.getLocalizedString({
+                en: 'Dynamic Note List Modules', 
+                zh: '动态笔记列表模块'
+            })
+        }).style.marginTop = '30px';
+
+        // Button to add a new dynamic module
+        // #SETTING_ADD_DYNAMIC_MODULE_BUTTON
+        new Setting(containerEl)
+            .setName(this.plugin.getLocalizedString({ en: 'Add New Dynamic List Module', zh: '添加新的动态列表模块' }))
+            .setDesc(this.plugin.getLocalizedString({ en: 'Create a new configurable module to display filtered notes in the main content area.', zh: '创建一个新的可配置模块，用于在主内容区域显示筛选后的笔记。'}))
+            .addButton(button => button
+                .setButtonText(this.plugin.getLocalizedString({ en: '+ Add Module', zh: '+ 添加模块' }))
+                .setCta() // Makes it more prominent
+                .onClick(async () => {
+                    // --- BEGIN: Scroll position workaround ---
+                    let scrollY = 0;
+                    const settingsContent = containerEl.closest('.vertical-tab-content'); // Common Obsidian settings scroll container
+                    if (settingsContent) {
+                        scrollY = settingsContent.scrollTop;
+                    }
+                    // --- END: Scroll position workaround ---
+                    
+                    const newModuleId = `dnl-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                    const newModule = {
+                        id: newModuleId,
+                        userDefinedTitle: this.plugin.getLocalizedString({en: "New Dynamic List ", zh: "新动态列表 "}) + (this.plugin.settings.dynamicNoteListModules.length + 1),
+                        enabled: true,
+                        filterGroup: { logic: 'AND', conditions: [], isNegated: false },
+                        displaySettings: {
+                            columns: 3,
+                            pillColors: { // Default colors or from a global default
+                                and: DEFAULT_SETTINGS.dynamicNoteListModules[0]?.displaySettings.pillColors.and || 'var(--color-green)',
+                                or: DEFAULT_SETTINGS.dynamicNoteListModules[0]?.displaySettings.pillColors.or || 'var(--color-orange)',
+                                not: DEFAULT_SETTINGS.dynamicNoteListModules[0]?.displaySettings.pillColors.not || 'var(--color-red)'
+                            }
+                        }
+                    };
+                    this.plugin.settings.dynamicNoteListModules.push(newModule);
+                    await this.plugin.saveSettings();
+                    this.display(); // Re-render the settings tab to show the new module
+
+                    // --- BEGIN: Restore scroll position ---
+                    if (settingsContent) {
+                        // Needs to happen after display() has fully re-rendered.
+                        // requestAnimationFrame can help ensure DOM is updated.
+                        requestAnimationFrame(() => {
+                            settingsContent.scrollTop = scrollY;
+                        });
+                    }
+                    // --- END: Restore scroll position ---
+                }));
+
+        // Container for existing dynamic modules
+        // #SETTINGS_DYNAMIC_MODULES_LIST_CONTAINER
+        const modulesContainer = containerEl.createDiv('dynamic-modules-list-container');
+
+        this.plugin.settings.dynamicNoteListModules.forEach((moduleItem, index) => {
+            // #SETTINGS_INDIVIDUAL_DYNAMIC_MODULE_ITEM
+            const moduleSettingContainer = modulesContainer.createEl('div', { cls: 'dynamic-module-setting-item' });
+            
+            // Using a Setting as a header for the collapsible section with controls
+            const moduleHeaderSetting = new Setting(moduleSettingContainer)
+                .setName(`${this.plugin.getLocalizedString({en:"Module:", zh:"模块:"})} ${moduleItem.userDefinedTitle || `List ${index + 1}`}`)
+                .setHeading() // Makes it look like a sub-header for the module
+                .addExtraButton(button => button // Enable/Disable Toggle
+                    .setIcon(moduleItem.enabled ? 'lucide-power' : 'lucide-power-off')
+                    .setTooltip(moduleItem.enabled ? this.plugin.getLocalizedString({en:"Disable this module", zh:"禁用此模块"}) : this.plugin.getLocalizedString({en:"Enable this module", zh:"启用此模块"}))
+                    .onClick(async () => {
+                        moduleItem.enabled = !moduleItem.enabled;
+                        await this.plugin.saveSettings();
+                        this.display(); // Re-render
+                    }))
+                .addExtraButton(button => button // Delete Button
+                    .setIcon('trash')
+                    .setTooltip(this.plugin.getLocalizedString({en:"Delete this module", zh:"删除此模块"}))
+                    .onClick(async () => {
+                        if (confirm(this.plugin.getLocalizedString({en:"Are you sure you want to delete this module?", zh:"您确定要删除此模块吗？"}))) {
+                            this.plugin.settings.dynamicNoteListModules.splice(index, 1);
+                            await this.plugin.saveSettings();
+                            this.display(); // Re-render
+                        }
+                    }));
+            
+            // --- Placeholder for module's detailed settings (collapsible part) ---
+            const detailsEl = moduleSettingContainer.createEl('details', { cls: 'dynamic-module-details' });
+            detailsEl.createEl('summary', { text: this.plugin.getLocalizedString({en:"Configure Module", zh:"配置模块"}) });
+            const configContentEl = detailsEl.createDiv({cls: 'dynamic-module-config-content'});
+
+            // 1. User Defined Title for this module
+            new Setting(configContentEl)
+                .setName(this.plugin.getLocalizedString({ en: "Module Title (for settings)", zh: "模块标题 (用于设置界面)" }))
+                .addText(text => text
+                    .setValue(moduleItem.userDefinedTitle)
+                    .onChange(async (value) => {
+                        moduleItem.userDefinedTitle = value;
+                        await this.plugin.saveSettings();
+                        // No need to full re-render display() for this, but header might need update if shown live
+                        // For simplicity, we can let the next full display() call update it, or:
+                        moduleHeaderSetting.setName(`${this.plugin.getLocalizedString({en:"Module:", zh:"模块:"})} ${moduleItem.userDefinedTitle || `List ${index + 1}`}`);
+                    }));
+
+            // 2. Display Settings: Columns
+            new Setting(configContentEl)
+                .setName(this.plugin.getLocalizedString({ en: "Number of Columns", zh: "列数" }))
+                .addSlider(slider => slider
+                    .setLimits(1, 5, 1)
+                    .setValue(moduleItem.displaySettings.columns)
+                    .setDynamicTooltip()
+                    .onChange(async (value) => {
+                        moduleItem.displaySettings.columns = value;
+                        await this.plugin.saveSettings();
+                    }));
+
+            // 3. Filter Group Editor
+            // #SETTINGS_FILTER_GROUP_EDITOR
+            configContentEl.createEl('h5', { text: this.plugin.getLocalizedString({en:"Filter Conditions", zh:"筛选条件"}) });
+            const filterGroupContainer = configContentEl.createDiv({cls: 'filter-group-editor-container'});
+
+            // Get the filterGroup for the current moduleItem
+            const currentFilterGroup = moduleItem.filterGroup; // Assumes filterGroup always exists
+
+            // A. Setting for the FilterGroup's logic (AND/OR)
+            new Setting(filterGroupContainer)
+                .setName(this.plugin.getLocalizedString({ en: "Combine conditions using:", zh: "条件组合方式:" }))
+                .setDesc(this.plugin.getLocalizedString({ en: "Choose how multiple conditions in this group are logically combined.", zh: "选择组内多个条件之间的逻辑组合方式。" }))
+                .addDropdown(dropdown => dropdown
+                    .addOption('AND', this.plugin.getLocalizedString({ en: 'AND (all conditions must match)', zh: '与 (所有条件均需匹配)' }))
+                    .addOption('OR', this.plugin.getLocalizedString({ en: 'OR (any condition can match)', zh: '或 (任意条件匹配即可)' }))
+                    .setValue(currentFilterGroup.logic)
+                    .onChange(async (value) => {
+                        currentFilterGroup.logic = value; // Value will be 'AND' or 'OR'
+                        await this.plugin.saveSettings();
+                        // No need to re-render entire display for this usually, unless UI depends on it
+                    }));
+
+            // B. Setting for the FilterGroup's isNegated (NOT operator for the whole group)
+            new Setting(filterGroupContainer)
+                .setName(this.plugin.getLocalizedString({ en: "Negate this entire group (NOT)", zh: "反转整个筛选组 (非)" }))
+                .setDesc(this.plugin.getLocalizedString({ en: "If enabled, notes matching this group's conditions will be excluded, and notes not matching will be included.", zh: "如果启用，符合此组条件的笔记将被排除，不符合条件的笔记将被包含。" }))
+                .addToggle(toggle => toggle
+                    .setValue(!!currentFilterGroup.isNegated) // Ensure it's a boolean
+                    .onChange(async (value) => {
+                        currentFilterGroup.isNegated = value;
+                        await this.plugin.saveSettings();
+                    }));
+            
+            filterGroupContainer.createEl('hr'); // Separator
+
+            // C. Display existing conditions (placeholder for now, will be detailed list items)
+            const conditionsListEl = filterGroupContainer.createDiv({cls: 'filter-conditions-list'});
+            if (currentFilterGroup.conditions && currentFilterGroup.conditions.length > 0) {
+                currentFilterGroup.conditions.forEach((condition, condIndex) => {
+                    // #SETTINGS_INDIVIDUAL_FILTER_CONDITION_ITEM (New marker)
+                    const conditionItemContainer = conditionsListEl.createDiv({cls: 'filter-condition-item'});
+                    conditionItemContainer.setText(
+                        `Condition ${condIndex + 1}: ${condition.property || '[Prop]'} ${condition.operator || '[Op]'} ${condition.value !== undefined ? condition.value : '[Val]'}`
+                    );
+                    // TODO: Implement full editor for each condition (property, operator, value, delete button)
+                    // For now, just a placeholder text.
+                });
+            } else {
+                conditionsListEl.createEl('p', { 
+                    cls: 'empty-message-compact', // A more compact empty message
+                    text: this.plugin.getLocalizedString({en: "No conditions added yet.", zh: "尚未添加任何条件。"})
+                });
+            }
+
+            // D. Button to add a new condition
+            // #SETTINGS_ADD_FILTER_CONDITION_BUTTON
+            new Setting(filterGroupContainer)
+                .addButton(button => button
+                    .setButtonText(this.plugin.getLocalizedString({ en: "+ Add Condition", zh: "+ 添加条件" }))
+                    .onClick(async () => {
+                        const newConditionId = `fc-${Date.now()}-${Math.random().toString(36).substr(2, 5)}`;
+                        const newCondition = {
+                            id: newConditionId,
+                            property: '', // Default to empty, user will select
+                            operator: 'contains', // Default operator, will be dynamic later
+                            value: ''
+                            // pillLogicType will be determined by the FilterGroup's logic
+                        };
+                        if (!currentFilterGroup.conditions) { // Ensure conditions array exists
+                            currentFilterGroup.conditions = [];
+                        }
+                        currentFilterGroup.conditions.push(newCondition);
+                        await this.plugin.saveSettings();
+                        
+                        // We need to re-render at least this module's config, or the whole settings tab
+                        // For simplicity with current structure, re-render the whole tab.
+                        // Record scroll position to mitigate jump
+                        let scrollY = 0;
+                        const settingsContent = containerEl.closest('.vertical-tab-content');
+                        if (settingsContent) scrollY = settingsContent.scrollTop;
+                        
+                        this.display(); // Re-render settings tab
+                        
+                        if (settingsContent) {
+                            requestAnimationFrame(() => { settingsContent.scrollTop = scrollY; });
+                        }
+                    }));
+            // 4. Placeholder for Pill Color Settings
+            configContentEl.createEl('h5', { text: this.plugin.getLocalizedString({en:"Pill Colors", zh:"筛选条件胶囊颜色"}) });
+            const pillColorsEditorEl = configContentEl.createDiv();
+            pillColorsEditorEl.setText(this.plugin.getLocalizedString({en:"[Pill Color Editor will be here]", zh:"[胶囊颜色编辑器将在此处]"}));
+            // TODO: Implement renderPillColorEditor(pillColorsEditorEl, moduleItem.displaySettings.pillColors, moduleItem.id)
+
+
+            // Add a separator
+            if (index < this.plugin.settings.dynamicNoteListModules.length - 1) {
+                modulesContainer.createEl('hr', {cls: 'dynamic-module-separator'});
+            }
+        });
 
         // --- SUB-HEADING: Show Folder Grid ---
         // #SETTINGS_SUBHEADING_Show Folder Grid
