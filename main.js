@@ -145,7 +145,7 @@ const DEFAULT_SETTINGS = {
 };
 
 const BODY_CLASS_FOR_HOMEPAGE = 'homepage-is-active';
-const HOMEPAGE_CODE_BLOCK_ID = 'custom-dynamic-homepage-content';
+const HOMEPAGE_CODE_BLOCK_ID = 'minimalist-homepage';
 
 // --- MAIN PLUGIN CLASS ---
 // #PLUGIN_CLASS_DEFINITION

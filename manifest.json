@@ -1,10 +1,10 @@
 {
-    "id": "custom-dynamic-homepage",
-    "name": "Custom Dynamic Homepage",
+    "id": "minimalist-homepage",
+    "name": "Minimalist Homepage",
     "version": "0.1.0",
     "minAppVersion": "1.0.0",
-    "description": "Generates a dynamic homepage, initially based on a DataviewJS script.",
-    "author": "ToDo",
-    "authorUrl": "",
+    "description": "A highly customizable, card-based homepage plugin for Obsidian.",
+    "author": "2doright",
+    "authorUrl": "https://github.com/2doright",
     "isDesktopOnly": false
 }
