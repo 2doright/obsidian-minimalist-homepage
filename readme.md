@@ -4,6 +4,8 @@
 [![GitHub all releases](https://img.shields.io/github/downloads/2doright/obsidian-minimalist-homepage/total?style=for-the-badge)](https://github.com/2doright/obsidian-minimalist-homepage/releases)
 
 一个 Obsidian 插件，旨在为您创建一个高度可定制、信息丰富且美观的卡片化主页。
+## 效果展示
+![](screenshot.png)
 
 ## 特性
 
